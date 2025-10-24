@@ -45,7 +45,7 @@ export default async function handler(req, res) {
 
     // Polling della casella per trovare il link
     let verificationLink = null;
-    const deadline = Date.now() + 240000;
+    const deadline = Date.now() + 60000; // Ridotto a 60s per evitare timeout di Vercel
 
     while (Date.now() < deadline && !verificationLink) {
       const inbox = await axios.get(`${MAILTM_BASE}/messages`, {
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
     if (!verificationLink)
       return res.status(200).json({
         status: "waiting",
-        message: "Timeout: no verification email found within 240s.",
+        message: "Timeout: no verification email found within 60s.",
         email,
         password,
       });
@@ -84,6 +84,7 @@ export default async function handler(req, res) {
       verificationLink,
     });
   } catch (err) {
+    console.error("Error:", err);
     return res.status(500).json({
       error: err.response?.data || err.message || "Unknown error",
     });
