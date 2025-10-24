@@ -34,11 +34,14 @@
     button { background: var(--accent); border: none; color: #fff; font-size: 14px; padding: 10px 14px; border-radius: 8px; cursor: pointer; transition: 0.14s; }
     button.secondary { background:#374151; }
     button:active { transform: translateY(1px); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
     #log { border: 1px solid #3f3f46; background: var(--panel); padding: 12px; height: 360px; overflow: auto; border-radius: 8px; font-size: 13px; color: #d4d4d8; white-space: pre-wrap; }
     .creds { margin-top: 12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
     .cred-box { background:#0b0c10; padding:10px; border-radius:8px; border:1px solid #222; min-width:240px; font-size:13px; color:#cfcfe6; }
     footer { margin-top: 18px; padding: 12px; font-size: 12px; color: var(--muted); width:100%; text-align:center; }
     .credit { font-weight:600; color:#fff; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -99,72 +102,108 @@ Don't skid this shit, kids
 
     let verificationLink = null;
 
-    const evtSource = new EventSource('/events');
-    evtSource.onmessage = function(e) {
-      try {
-        const data = JSON.parse(e.data);
-        appendLog(data.text);
-        handleServerMessage(data.text);
-      } catch {
-        appendLog(e.data);
-      }
-    };
-
     function appendLog(text) {
       const now = new Date().toLocaleTimeString();
       logEl.textContent += `[${now}] ${text}\n`;
       logEl.scrollTop = logEl.scrollHeight;
     }
 
-    function handleServerMessage(line) {
-      if (line.startsWith('account:')) {
-        const rest = line.replace('account:', '').trim();
-        const parts = rest.split('password:');
-        const email = parts[0]?.trim();
-        const password = parts[1]?.trim();
-        if (email) emailText.textContent = email;
-        if (password) passText.textContent = password;
-      }
-      if (line.startsWith('Verification link extracted:')) {
-        verificationLink = line.replace('Verification link extracted:', '').trim();
-        openLinkBtn.style.display = 'inline-block';
-      }
-    }
-
     createBtn.addEventListener('click', async () => {
       createBtn.disabled = true;
-      appendLog("⚙️ Starting process...");
+      createBtn.innerHTML = '<span class="spinner"></span> Creating...';
+      emailText.textContent = '—';
+      passText.textContent = '—';
+      openLinkBtn.style.display = 'none';
+      verificationLink = null;
+
+      appendLog("⚙️ Starting account creation process...");
+      appendLog("🔄 Fetching temporary email domain...");
+
       try {
-        const resp = await fetch('/api/create', { method: 'POST' }); // adapted for Vercel API route
+        const resp = await fetch('/api/create', { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        }
+
         const data = await resp.json();
-        if (data.status === 'started') appendLog("✅ Process started on server.");
-        else appendLog("❌ Unexpected response: " + JSON.stringify(data));
+        
+        if (data.error) {
+          appendLog("❌ Error: " + JSON.stringify(data.error));
+        } else if (data.status === 'success') {
+          appendLog("✅ Account created successfully!");
+          appendLog("📧 Email: " + data.email);
+          appendLog("🔑 Password: " + data.password);
+          appendLog("🔗 Verification link extracted: " + data.verificationLink);
+          
+          emailText.textContent = data.email;
+          passText.textContent = data.password;
+          verificationLink = data.verificationLink;
+          openLinkBtn.style.display = 'inline-block';
+        } else if (data.status === 'waiting') {
+          appendLog("⏳ " + data.message);
+          appendLog("📧 Email: " + data.email);
+          appendLog("🔑 Password: " + data.password);
+          appendLog("ℹ️ You may need to check the email manually later.");
+          
+          emailText.textContent = data.email;
+          passText.textContent = data.password;
+        } else {
+          appendLog("⚠️ Unexpected response: " + JSON.stringify(data));
+        }
       } catch (err) {
-        appendLog("❌ Network error: " + err.message);
+        appendLog("❌ Error: " + err.message);
+        console.error(err);
       } finally {
         createBtn.disabled = false;
+        createBtn.innerHTML = '🚀 Create Account';
       }
     });
 
-    clearLogBtn.addEventListener('click', () => { logEl.textContent = ""; });
+    clearLogBtn.addEventListener('click', () => { 
+      logEl.textContent = ""; 
+      appendLog("🧹 Log cleared.");
+    });
 
     copyEmailBtn.addEventListener('click', async () => {
       const text = emailText.textContent;
-      if (!text || text === '—') return;
-      try { await navigator.clipboard.writeText(text); appendLog("📋 Email copied to clipboard."); } 
-      catch { appendLog("⚠️ Failed to copy email."); }
+      if (!text || text === '—') {
+        appendLog("⚠️ No email to copy.");
+        return;
+      }
+      try { 
+        await navigator.clipboard.writeText(text); 
+        appendLog("📋 Email copied to clipboard."); 
+      } catch { 
+        appendLog("⚠️ Failed to copy email."); 
+      }
     });
 
     copyPassBtn.addEventListener('click', async () => {
       const text = passText.textContent;
-      if (!text || text === '—') return;
-      try { await navigator.clipboard.writeText(text); appendLog("📋 Password copied to clipboard."); } 
-      catch { appendLog("⚠️ Failed to copy password."); }
+      if (!text || text === '—') {
+        appendLog("⚠️ No password to copy.");
+        return;
+      }
+      try { 
+        await navigator.clipboard.writeText(text); 
+        appendLog("📋 Password copied to clipboard."); 
+      } catch { 
+        appendLog("⚠️ Failed to copy password."); 
+      }
     });
 
     openLinkBtn.addEventListener('click', () => {
-      if (verificationLink) window.open(verificationLink, '_blank');
+      if (verificationLink) {
+        window.open(verificationLink, '_blank');
+        appendLog("🌐 Opened verification link in new tab.");
+      }
     });
+
+    appendLog("👋 Welcome! Click 'Create Account' to start.");
   </script>
 </body>
 </html>
