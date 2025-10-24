@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>✨ Lovable Account Creator ✨</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f111a;
+      --card: #1a1c29;
+      --muted: #a1a1aa;
+      --accent: #6d28d9;
+      --accent-2: #9333ea;
+      --text: #e5e5e5;
+      --panel: #12131c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Consolas", monospace;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    header { text-align: center; padding: 18px 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); width: 100%; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3);}
+    header pre { margin: 0; font-size: 12px; line-height: 1.05; white-space: pre; }
+    main { width: 94%; max-width: 900px; background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 6px 18px rgba(0,0,0,0.45); margin-top: 20px; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .controls { margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap; }
+    button { background: var(--accent); border: none; color: #fff; font-size: 14px; padding: 10px 14px; border-radius: 8px; cursor: pointer; transition: 0.14s; }
+    button.secondary { background:#374151; }
+    button:active { transform: translateY(1px); }
+    #log { border: 1px solid #3f3f46; background: var(--panel); padding: 12px; height: 360px; overflow: auto; border-radius: 8px; font-size: 13px; color: #d4d4d8; white-space: pre-wrap; }
+    .creds { margin-top: 12px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .cred-box { background:#0b0c10; padding:10px; border-radius:8px; border:1px solid #222; min-width:240px; font-size:13px; color:#cfcfe6; }
+    footer { margin-top: 18px; padding: 12px; font-size: 12px; color: var(--muted); width:100%; text-align:center; }
+    .credit { font-weight:600; color:#fff; }
+  </style>
+</head>
+<body>
+  <header>
+    <pre>
+  _                     _     _                                        _    _____                _             
+ | |                   | |   | |        /\                            | |  / ____|              | |            
+ | |     _____   ____ _| |__ | | ___   /  \   ___ ___ ___  _   _ _ __ | |_| |     _ __ ___  __ _| |_ ___  _ __ 
+ | |    / _ \ \ / / _` | '_ \| |/ _ \ / /\ \ / __/ __/ _ \| | | | '_ \| __| |    | '__/ _ \/ _` | __/ _ \| '__|
+ | |___| (_) \ V / (_| | |_) | |  __// ____ \ (_| (_| (_) | |_| | | | | |_| |____| | |  __/ (_| | || (_) | |   
+ |______\___/ \_/ \__,_|_.__/|_|\___/_/    \_\___\___\___/ \__,_|_| |_|\__|\_____|_|  \___|\__,_|\__\___/|_|   
+                                                                                                                
+  Made with 💜 by Fixpu
+https://github.com/fixpuu
+Don't skid this shit, kids
+</pre>
+  </header>
+
+  <main>
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div>
+        <strong>Lovable Account Creator</strong>
+        <div style="color:var(--muted);font-size:13px">Made by Fixpu • github.com/fixpuu</div>
+      </div>
+      <div class="controls">
+        <button id="createBtn">🚀 Create Account</button>
+        <button id="clearLog" class="secondary">✖ Clear Log</button>
+      </div>
+    </div>
+
+    <div class="row" style="gap:10px;margin-bottom:10px">
+      <div class="cred-box" id="emailBox">Email: <span id="emailText">—</span></div>
+      <div class="cred-box" id="passBox">Password: <span id="passText">—</span></div>
+      <div style="display:flex;gap:8px">
+        <button id="copyEmailBtn" class="secondary">Copy Email</button>
+        <button id="copyPassBtn" class="secondary">Copy Password</button>
+        <button id="openLinkBtn" class="secondary" style="display:none">Open Verification Link</button>
+      </div>
+    </div>
+
+    <h3 style="margin:6px 0;color:var(--muted)">📜 Real-time Log</h3>
+    <div id="log"></div>
+  </main>
+
+  <footer>
+    <span class="credit">Made by Fixpu</span> • github.com/fixpuu • Use responsibly
+  </footer>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const createBtn = document.getElementById('createBtn');
+    const clearLogBtn = document.getElementById('clearLog');
+    const emailText = document.getElementById('emailText');
+    const passText = document.getElementById('passText');
+    const copyEmailBtn = document.getElementById('copyEmailBtn');
+    const copyPassBtn = document.getElementById('copyPassBtn');
+    const openLinkBtn = document.getElementById('openLinkBtn');
+
+    let verificationLink = null;
+
+    const evtSource = new EventSource('/events');
+    evtSource.onmessage = function(e) {
+      try {
+        const data = JSON.parse(e.data);
+        appendLog(data.text);
+        handleServerMessage(data.text);
+      } catch {
+        appendLog(e.data);
+      }
+    };
+
+    function appendLog(text) {
+      const now = new Date().toLocaleTimeString();
+      logEl.textContent += `[${now}] ${text}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function handleServerMessage(line) {
+      if (line.startsWith('account:')) {
+        const rest = line.replace('account:', '').trim();
+        const parts = rest.split('password:');
+        const email = parts[0]?.trim();
+        const password = parts[1]?.trim();
+        if (email) emailText.textContent = email;
+        if (password) passText.textContent = password;
+      }
+      if (line.startsWith('Verification link extracted:')) {
+        verificationLink = line.replace('Verification link extracted:', '').trim();
+        openLinkBtn.style.display = 'inline-block';
+      }
+    }
+
+    createBtn.addEventListener('click', async () => {
+      createBtn.disabled = true;
+      appendLog("⚙️ Starting process...");
+      try {
+        const resp = await fetch('/api/create', { method: 'POST' }); // adapted for Vercel API route
+        const data = await resp.json();
+        if (data.status === 'started') appendLog("✅ Process started on server.");
+        else appendLog("❌ Unexpected response: " + JSON.stringify(data));
+      } catch (err) {
+        appendLog("❌ Network error: " + err.message);
+      } finally {
+        createBtn.disabled = false;
+      }
+    });
+
+    clearLogBtn.addEventListener('click', () => { logEl.textContent = ""; });
+
+    copyEmailBtn.addEventListener('click', async () => {
+      const text = emailText.textContent;
+      if (!text || text === '—') return;
+      try { await navigator.clipboard.writeText(text); appendLog("📋 Email copied to clipboard."); } 
+      catch { appendLog("⚠️ Failed to copy email."); }
+    });
+
+    copyPassBtn.addEventListener('click', async () => {
+      const text = passText.textContent;
+      if (!text || text === '—') return;
+      try { await navigator.clipboard.writeText(text); appendLog("📋 Password copied to clipboard."); } 
+      catch { appendLog("⚠️ Failed to copy password."); }
+    });
+
+    openLinkBtn.addEventListener('click', () => {
+      if (verificationLink) window.open(verificationLink, '_blank');
+    });
+  </script>
+</body>
+</html>
