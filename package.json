@@ -1,9 +1,14 @@
 {
   "name": "lovable-account-creator",
   "version": "1.0.0",
-  "type": "commonjs",
+  "description": "Automatic account creator for testing purposes",
   "main": "api/create.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node api/create.js"
+  },
   "dependencies": {
     "axios": "^1.6.0",
     "nodemailer": "^6.9.3"
   }
+}
